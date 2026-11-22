@@ -1,0 +1,11 @@
+[component]
+name = "site"
+id = "sigmaos-site"
+kind = "component"
+license = "GPL-3.0-or-later"
+inspiration = "omacom/site"
+
+[component.metadata]
+category = "sigmaos"
+branch = "main"
+docs = "github-wiki"
