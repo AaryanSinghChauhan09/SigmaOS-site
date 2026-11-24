@@ -1,6 +1,6 @@
 //! CLI for sigmaos-site.
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use sigmaos_site::{build, default_config, load_config, save_config, SiteConfig};
 use std::path::PathBuf;
 
