@@ -32,7 +32,11 @@ enum Commands {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     match Cli::parse().command {
-        Commands::Build { content, output, config } => {
+        Commands::Build {
+            content,
+            output,
+            config,
+        } => {
             let cfg: SiteConfig = match config {
                 Some(p) => load_config(&p)?,
                 None => default_config(),

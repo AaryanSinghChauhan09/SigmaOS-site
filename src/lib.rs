@@ -87,16 +87,28 @@ pub fn markdown_to_html(md: &str) -> String {
             continue;
         }
         if let Some(h) = t.strip_prefix("### ") {
-            if in_para { out.push_str("</p>\n"); in_para = false; }
+            if in_para {
+                out.push_str("</p>\n");
+                in_para = false;
+            }
             out.push_str(&format!("<h3>{}</h3>\n", escape_html(h)));
         } else if let Some(h) = t.strip_prefix("## ") {
-            if in_para { out.push_str("</p>\n"); in_para = false; }
+            if in_para {
+                out.push_str("</p>\n");
+                in_para = false;
+            }
             out.push_str(&format!("<h2>{}</h2>\n", escape_html(h)));
         } else if let Some(h) = t.strip_prefix("# ") {
-            if in_para { out.push_str("</p>\n"); in_para = false; }
+            if in_para {
+                out.push_str("</p>\n");
+                in_para = false;
+            }
             out.push_str(&format!("<h1>{}</h1>\n", escape_html(h)));
         } else if t.starts_with("- ") || t.starts_with("* ") {
-            if in_para { out.push_str("</p>\n"); in_para = false; }
+            if in_para {
+                out.push_str("</p>\n");
+                in_para = false;
+            }
             out.push_str(&format!("<li>{}</li>\n", escape_html(&t[2..])));
         } else {
             if !in_para {
@@ -112,8 +124,10 @@ pub fn markdown_to_html(md: &str) -> String {
                 if let Some(i) = rest.find("**") {
                     rendered.push_str(&escape_html(&rest[..i]));
                     if let Some(j) = rest[i + 2..].find("**") {
-                        rendered.push_str(&format!("<strong>{}</strong>",
-                            escape_html(&rest[i + 2..i + 2 + j])));
+                        rendered.push_str(&format!(
+                            "<strong>{}</strong>",
+                            escape_html(&rest[i + 2..i + 2 + j])
+                        ));
                         rest = &rest[i + 2 + j + 2..];
                         continue;
                     }
@@ -122,8 +136,10 @@ pub fn markdown_to_html(md: &str) -> String {
                 } else if let Some(i) = rest.find('`') {
                     rendered.push_str(&escape_html(&rest[..i]));
                     if let Some(j) = rest[i + 1..].find('`') {
-                        rendered.push_str(&format!("<code>{}</code>",
-                            escape_html(&rest[i + 1..i + 1 + j])));
+                        rendered.push_str(&format!(
+                            "<code>{}</code>",
+                            escape_html(&rest[i + 1..i + 1 + j])
+                        ));
                         rest = &rest[i + 1 + j + 1..];
                         continue;
                     }
@@ -138,7 +154,8 @@ pub fn markdown_to_html(md: &str) -> String {
                             let url = &rest[text_end + 2..text_end + url_end];
                             rendered.push_str(&format!(
                                 "<a href=\"{}\">{}</a>",
-                                escape_html(url), escape_html(link_text)
+                                escape_html(url),
+                                escape_html(link_text)
                             ));
                             rest = &rest[text_end + url_end + 1..];
                             continue;
@@ -187,9 +204,9 @@ pub fn build(
         if !entry.file_type().is_file() {
             continue;
         }
-        let rel = src.strip_prefix(content_dir).map_err(|e| {
-            SiteError::Validation(e.to_string())
-        })?;
+        let rel = src
+            .strip_prefix(content_dir)
+            .map_err(|e| SiteError::Validation(e.to_string()))?;
         let is_md = src.extension().and_then(|e| e.to_str()) == Some("md");
 
         if is_md {
