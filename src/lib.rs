@@ -305,3 +305,123 @@ pub fn pages_by_dir(result: &BuildResult) -> BTreeMap<String, Vec<&BuiltPage>> {
     }
     map
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dirs(tag: &str) -> (PathBuf, PathBuf) {
+        let base = std::env::temp_dir().join(format!("site-{}-{}", tag, std::process::id()));
+        let content = base.join("content");
+        let out = base.join("out");
+        std::fs::create_dir_all(&content).unwrap();
+        (content, out)
+    }
+
+    #[test]
+    fn escape_html_covers_specials() {
+        assert_eq!(escape_html("<a>&\"b\""), "&lt;a&gt;&amp;&quot;b&quot;");
+    }
+
+    #[test]
+    fn render_substitutes_all_tokens() {
+        let html = render(
+            "<h>{{title}}</h><p>{{description}}</p>{{content}}",
+            "T",
+            "D",
+            "C",
+        );
+        assert_eq!(html, "<h>T</h><p>D</p>C");
+    }
+
+    #[test]
+    fn markdown_headings_lists_inline() {
+        let md = "# Title\n\nHello **bold** and `code` and [lnk](http://x).\n\n- one\n- two\n";
+        let html = markdown_to_html(md);
+        assert!(html.contains("<h1>Title</h1>"));
+        assert!(html.contains("<strong>bold</strong>"));
+        assert!(html.contains("<code>code</code>"));
+        assert!(html.contains("<a href=\"http://x\">lnk</a>"));
+        assert!(html.contains("<li>one</li>"));
+        assert!(html.contains("<li>two</li>"));
+        assert!(html.contains("</p>"));
+    }
+
+    #[test]
+    fn markdown_escapes_html_in_text() {
+        let html = markdown_to_html("# <script>\n\n<x> & y");
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(html.contains("&lt;x&gt; &amp; y"));
+        assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn markdown_paragraph_joins_lines() {
+        let html = markdown_to_html("line one\nline two\n\nnew para");
+        assert!(html.contains("line one line two"));
+        assert_eq!(html.matches("<p>").count(), 2);
+    }
+
+    #[test]
+    fn build_generates_pages_assets_and_index() {
+        let (content, out) = dirs("build");
+        std::fs::write(content.join("index.md"), "# Home\n\nWelcome.\n").unwrap();
+        std::fs::create_dir_all(content.join("docs")).unwrap();
+        std::fs::write(content.join("docs/guide.md"), "## Guide\n\nText.\n").unwrap();
+        std::fs::write(content.join("style.css"), "body{}\n").unwrap();
+        let cfg = default_config();
+        let res = build(&content, &out, &cfg).unwrap();
+        assert_eq!(res.pages.len(), 2);
+        assert_eq!(res.assets_copied, 1);
+        assert!(out.join("index.html").exists());
+        assert!(out.join("docs/guide.html").exists());
+        assert!(out.join("style.css").exists());
+        let idx = std::fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(idx.contains("Welcome."));
+        // pages_by_dir groups correctly
+        let groups = pages_by_dir(&res);
+        assert_eq!(groups.len(), 2);
+        let _ = std::fs::remove_dir_all(content.parent().unwrap());
+    }
+
+    #[test]
+    fn build_generates_index_when_no_index_md() {
+        let (content, out) = dirs("noidx");
+        std::fs::write(content.join("a.md"), "# A\n").unwrap();
+        std::fs::write(content.join("b.md"), "# B\n").unwrap();
+        let res = build(&content, &out, &default_config()).unwrap();
+        assert!(!res.pages.iter().any(|p| p.output.ends_with("index.html")));
+        let idx = std::fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(idx.contains("href=\"/a.html\""));
+        assert!(idx.contains("href=\"/b.html\""));
+        let _ = std::fs::remove_dir_all(content.parent().unwrap());
+    }
+
+    #[test]
+    fn build_missing_content_dir_errors() {
+        let r = build(
+            Path::new("/nonexistent-dir"),
+            Path::new("/tmp/out-x"),
+            &default_config(),
+        );
+        assert!(matches!(r, Err(SiteError::NotFound(_))));
+    }
+
+    #[test]
+    fn config_roundtrip() {
+        let (content, _out) = dirs("cfg");
+        let path = content.join("site.json");
+        let cfg = SiteConfig {
+            title: "T".into(),
+            base_url: "https://x".into(),
+            description: "d".into(),
+            template: "{{title}}|{{content}}".into(),
+        };
+        save_config(&cfg, &path).unwrap();
+        let back = load_config(&path).unwrap();
+        assert_eq!(back.title, "T");
+        assert_eq!(back.template, "{{title}}|{{content}}");
+        assert!(load_config(&content.join("nope.json")).is_err());
+        let _ = std::fs::remove_dir_all(content.parent().unwrap());
+    }
+}
